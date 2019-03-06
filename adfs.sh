@@ -34,9 +34,7 @@ fi
 # Get 302 URL and IdP cookies
 url=$(curl -L --silent --cookie-jar idp.cookies --output /dev/null -w %{url_effective} --url "https://$idp/adfs/ls/idpinitiatedsignon.htm?logintoRP=urn:amazon:webservices&RedirectToIdentityProvider=http://$([ \"$realm\" == \"\" ] && echo $idp || echo $realm)/adfs/services/trust" $insecure);
 # Post username and password to realm
-curl --silent --cookie-jar auth.cookies --output /dev/null --data-urlencode "UserName=$domain\\$user" --data-urlencode "Password=$password" --data-urlencode "AuthMethod=FormsAuthentication" --url $url $insecure;
-# Get saml page
-curl --silent --cookie auth.cookies --cookie-jar auth.cookies --output response.html --url $url $insecure;
+curl -L --silent --cookie-jar auth.cookies --output response.html --data-urlencode "UserName=$domain\\$user" --data-urlencode "Password=$password" --data-urlencode "AuthMethod=FormsAuthentication" --url $url $insecure;
 # If MFA was provided
 if [[ "$mfa" != "" ]]; then
     context=$(grep -i context response.html | awk -F"\"" '{print $8}');
@@ -55,7 +53,7 @@ if [[ "$realm" != "" ]]; then
     # Extract saml from IdP response HTML
     saml=$(cat response.html | awk -F'"' '{print $12}');
 fi
-echo "Assuming Role With SAML";
+echo "Assuming Role With SAML for $account";
 credentials=$(aws sts assume-role-with-saml --principal-arn $principal --role-arn $role --saml-assertion $saml);
 echo "Exporting AWS Credentials";
 export AWS_ACCESS_KEY_ID=$(echo $credentials | jq --raw-output .Credentials.AccessKeyId);
